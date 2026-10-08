@@ -1,0 +1,21 @@
+{
+    "name": "RSM Dev Rules",
+    "rules": [
+        {
+            "id": "AA0214",
+            "action": "None"
+        },
+        {
+            "id": "AA0175",
+            "action": "None"
+        },
+        {
+            "id": "AA0205",
+            "action": "None"
+        },
+        {
+            "id": "AA0072",
+            "action": "None"
+        }
+    ]
+}

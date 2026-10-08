@@ -1,0 +1,33 @@
+{
+  "id": "66d7aa17-1aed-4dc0-a54d-6d3c8bc94481",
+  "name": "Generic EDI Handler",
+  "publisher": "Jeff Landeen",
+  "version": "1.0.0.1",
+  "brief": "Proof of concept for importing and exporting EDI documents (Text/XML/JSON).",
+  "description": "Stages inbound and outbound EDI documents in dedicated tables with browsable list pages.",
+  "privacyStatement": "https://github.com/JeffLandeen/BCEDIHandler",
+  "EULA": "https://github.com/JeffLandeen/BCEDIHandler",
+  "help": "https://github.com/JeffLandeen/BCEDIHandler",
+  "contextSensitiveHelpUrl": "https://github.com/JeffLandeen/BCEDIHandler",
+  "url": "https://github.com/JeffLandeen/BCEDIHandler",
+  "logo": "./images/logo.png",
+  "dependencies": [],
+  "screenshots": [],
+  "platform": "1.0.0.0",
+  "application": "26.0.0.0",
+  "idRanges": [
+    {
+      "from": 72300,
+      "to": 72399
+    }
+  ],
+  "resourceExposurePolicy": {
+    "allowDebugging": true,
+    "allowDownloadingSource": true,
+    "includeSourceInSymbolFile": true
+  },
+  "runtime": "16.0",
+  "features": [
+    "NoImplicitWith"
+  ]
+}

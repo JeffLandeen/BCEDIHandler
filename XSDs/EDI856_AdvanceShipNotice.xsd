@@ -1,0 +1,355 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  EDI 856 - Advance Ship Notice (Outbound)
+  Direction: Business Central -> Trading Partner
+  BC Source: Posted Sales Shipment (Sales Shipment Header / Line),
+             Item Ledger / Item Tracking (lot + serial), packing structure
+  Hierarchy (X12 HL equivalent, pick/pack structure):
+    Shipment -> Order -> Pallet (Tare) -> [Carton (Pack)] -> Item
+    Items may sit directly on a pallet (bulk / full-case pallets) or inside cartons.
+    Loose items with no pallet can be sent under <LooseCartons>/<LooseItems> on the Order.
+  Mapping notes:
+    - ShipmentNumber      <- Sales Shipment Header."No."
+    - SalesOrderNumber    <- Sales Shipment Header."Order No."
+    - PurchaseOrderNumber <- Sales Shipment Header."External Document No."
+    - Lot/Serial detail   <- Item Tracking entries for the shipment line
+    - PalletId / CartonId are SSCC-18 license plate numbers where available
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:rsm:edi:bc:856:v1"
+           xmlns="urn:rsm:edi:bc:856:v1"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified"
+           version="1.0">
+
+  <!-- ======================= Root ======================= -->
+  <xs:element name="AdvanceShipNotice" type="AdvanceShipNoticeType"/>
+
+  <xs:complexType name="AdvanceShipNoticeType">
+    <xs:sequence>
+      <xs:element name="EDIEnvelopeInfo" type="EDIEnvelopeInfoType"/>
+      <xs:element name="Header" type="ShipmentHeaderType"/>
+      <xs:element name="Orders" type="OrdersType"/>
+      <xs:element name="Summary" type="ShipmentSummaryType" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="SchemaVersion" type="xs:string" use="optional" default="1.0"/>
+  </xs:complexType>
+
+  <!-- ======================= Shipment level ======================= -->
+  <xs:complexType name="ShipmentHeaderType">
+    <xs:sequence>
+      <xs:element name="TradingPartnerId" type="Code20Type"/>
+
+      <!-- BC posted shipment identification -->
+      <xs:element name="ShipmentNumber" type="Code20Type"/>
+      <xs:element name="ShipmentDate" type="xs:date"/>
+      <xs:element name="EstimatedDeliveryDate" type="xs:date" minOccurs="0"/>
+
+      <!-- ASN purpose: 00=Original, 01=Cancellation, 05=Replace -->
+      <xs:element name="TransactionPurposeCode" type="PurposeCodeType" minOccurs="0" default="00"/>
+
+      <!-- Carrier / transport -->
+      <xs:element name="ShippingAgentCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="ShippingAgentServiceCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="SCAC" type="Code10Type" minOccurs="0"/>
+      <xs:element name="TransportMethodCode" type="TransportMethodCodeType" minOccurs="0"/>
+      <xs:element name="BillOfLadingNumber" type="Code35Type" minOccurs="0"/>
+      <xs:element name="ProNumber" type="Code35Type" minOccurs="0"/>
+      <xs:element name="TrackingNumber" type="Code50Type" minOccurs="0"/>
+      <xs:element name="TrailerNumber" type="Code35Type" minOccurs="0"/>
+      <xs:element name="SealNumber" type="Code35Type" minOccurs="0"/>
+
+      <!-- Physical totals -->
+      <xs:element name="TotalGrossWeight" type="MeasureType" minOccurs="0"/>
+      <xs:element name="TotalNetWeight" type="MeasureType" minOccurs="0"/>
+      <xs:element name="TotalVolume" type="MeasureType" minOccurs="0"/>
+      <xs:element name="TotalPalletCount" type="xs:integer" minOccurs="0"/>
+      <xs:element name="TotalCartonCount" type="xs:integer" minOccurs="0"/>
+
+      <!-- Parties -->
+      <xs:element name="ShipFrom" type="AddressType"/>
+      <xs:element name="ShipTo" type="AddressType"/>
+
+      <xs:element name="Notes" type="NotesType" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= Order level ======================= -->
+  <xs:complexType name="OrdersType">
+    <xs:sequence>
+      <xs:element name="Order" type="OrderType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="OrderType">
+    <xs:sequence>
+      <xs:element name="PurchaseOrderNumber" type="Code35Type"/>
+      <xs:element name="PurchaseOrderDate" type="xs:date" minOccurs="0"/>
+      <xs:element name="SalesOrderNumber" type="Code20Type"/>
+      <xs:element name="DepartmentNumber" type="Code35Type" minOccurs="0"/>
+
+      <!-- Packed structure: at least one of Pallets, LooseCartons, or LooseItems
+           is required. Palletized freight uses Pallets; non-palletized cartons go in
+           LooseCartons; unpackaged items go in LooseItems. Any combination is allowed,
+           but an Order with no content is invalid. -->
+      <xs:choice>
+        <xs:sequence>
+          <xs:element name="Pallets" type="PalletsType"/>
+          <xs:element name="LooseCartons" type="CartonsType" minOccurs="0"/>
+          <xs:element name="LooseItems" type="ItemsType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:sequence>
+          <xs:element name="LooseCartons" type="CartonsType"/>
+          <xs:element name="LooseItems" type="ItemsType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:element name="LooseItems" type="ItemsType"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= Pallet (Tare) level ======================= -->
+  <xs:complexType name="PalletsType">
+    <xs:sequence>
+      <xs:element name="Pallet" type="PalletType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="PalletType">
+    <xs:sequence>
+      <!-- License plate: SSCC-18 preferred, internal LP number otherwise -->
+      <xs:element name="PalletId" type="Code50Type"/>
+      <xs:element name="SSCC" type="SSCCType" minOccurs="0"/>
+      <xs:element name="PalletTypeCode" type="Code10Type" minOccurs="0"/>
+
+      <xs:element name="GrossWeight" type="MeasureType" minOccurs="0"/>
+      <xs:element name="NetWeight" type="MeasureType" minOccurs="0"/>
+      <xs:element name="Height" type="MeasureType" minOccurs="0"/>
+      <xs:element name="Length" type="MeasureType" minOccurs="0"/>
+      <xs:element name="Width" type="MeasureType" minOccurs="0"/>
+
+      <xs:element name="CartonCount" type="xs:integer" minOccurs="0"/>
+
+      <!-- A pallet carries cartons, direct items, or a mix of both -
+           but an empty pallet is invalid. -->
+      <xs:choice>
+        <xs:sequence>
+          <xs:element name="Cartons" type="CartonsType"/>
+          <xs:element name="Items" type="ItemsType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:element name="Items" type="ItemsType"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= Carton (Pack) level ======================= -->
+  <xs:complexType name="CartonsType">
+    <xs:sequence>
+      <xs:element name="Carton" type="CartonType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="CartonType">
+    <xs:sequence>
+      <xs:element name="CartonId" type="Code50Type"/>
+      <xs:element name="SSCC" type="SSCCType" minOccurs="0"/>
+      <xs:element name="TrackingNumber" type="Code50Type" minOccurs="0"/>
+
+      <xs:element name="GrossWeight" type="MeasureType" minOccurs="0"/>
+      <xs:element name="NetWeight" type="MeasureType" minOccurs="0"/>
+
+      <xs:element name="Items" type="ItemsType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= Item level ======================= -->
+  <xs:complexType name="ItemsType">
+    <xs:sequence>
+      <xs:element name="Item" type="ItemType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ItemType">
+    <xs:sequence>
+      <!-- Ties back to the partner's 850 line and BC shipment line -->
+      <xs:element name="PurchaseOrderLineNumber" type="xs:integer" minOccurs="0"/>
+      <xs:element name="ShipmentLineNumber" type="xs:integer"/>
+
+      <!-- Item identification -->
+      <xs:element name="BuyerItemNumber" type="Code50Type" minOccurs="0"/>
+      <xs:element name="SellerItemNumber" type="Code20Type"/>
+      <xs:element name="GTIN" type="GTINType" minOccurs="0"/>
+      <xs:element name="VariantCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="Description" type="Text100Type" minOccurs="0"/>
+
+      <!-- Quantity shipped in THIS packing unit (not the full line qty) -->
+      <xs:element name="QuantityShipped" type="QuantityType"/>
+      <xs:element name="UnitOfMeasureCode" type="Code10Type"/>
+      <xs:element name="QuantityOrdered" type="QuantityType" minOccurs="0"/>
+
+      <!-- Country of origin, useful for customs-sensitive partners -->
+      <xs:element name="CountryOfOriginCode" type="Code10Type" minOccurs="0"/>
+
+      <!-- Item tracking detail -->
+      <xs:element name="Lots" type="LotsType" minOccurs="0"/>
+      <xs:element name="SerialNumbers" type="SerialNumbersType" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= Lot / serial detail ======================= -->
+  <xs:complexType name="LotsType">
+    <xs:sequence>
+      <xs:element name="Lot" type="LotType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="LotType">
+    <xs:sequence>
+      <xs:element name="LotNumber" type="Code50Type"/>
+      <xs:element name="Quantity" type="QuantityType"/>
+      <xs:element name="ManufacturingDate" type="xs:date" minOccurs="0"/>
+      <xs:element name="ExpirationDate" type="xs:date" minOccurs="0"/>
+      <xs:element name="CountryOfOriginCode" type="Code10Type" minOccurs="0"/>
+      <!-- Serials belonging to this lot for lot+serial tracked items -->
+      <xs:element name="SerialNumbers" type="SerialNumbersType" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="SerialNumbersType">
+    <xs:sequence>
+      <xs:element name="SerialNumber" type="Code50Type" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= Summary ======================= -->
+  <xs:complexType name="ShipmentSummaryType">
+    <xs:sequence>
+      <xs:element name="TotalLineCount" type="xs:integer" minOccurs="0"/>
+      <xs:element name="TotalQuantityShipped" type="QuantityType" minOccurs="0"/>
+      <!-- HL segment count equivalent for partners that reconcile structure -->
+      <xs:element name="TotalPackagingUnitCount" type="xs:integer" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= EDI envelope ======================= -->
+  <xs:complexType name="EDIEnvelopeInfoType">
+    <xs:annotation>
+      <xs:documentation>Envelope-level EDI identification, common to all RSM BC EDI documents. Always the first child of the root element.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="TransactionSetCode" type="Code10Type" fixed="856">
+        <xs:annotation><xs:documentation>EDI transaction set identifier (ST01 equivalent). Fixed to "856" in this schema - a document carrying any other value fails validation, so the raw XML self-identifies its message type.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="SourceTradingPartnerId" type="Code35Type">
+        <xs:annotation><xs:documentation>Sender identifier (ISA06/GS02 equivalent)</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="DestinationTradingPartnerId" type="Code35Type">
+        <xs:annotation><xs:documentation>Receiver identifier (ISA08/GS03 equivalent)</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="EDIDocumentNumber" type="Code35Type">
+        <xs:annotation><xs:documentation>Unique EDI document/control number for this transaction (ST02 equivalent); duplicate detection key</xs:documentation></xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= Shared types ======================= -->
+  <xs:complexType name="AddressType">
+    <xs:sequence>
+      <xs:element name="LocationCode" type="Code20Type" minOccurs="0"/>
+      <xs:element name="GLN" type="GLNType" minOccurs="0"/>
+      <xs:element name="Name" type="Text100Type"/>
+      <xs:element name="Name2" type="Text100Type" minOccurs="0"/>
+      <xs:element name="Address" type="Text100Type" minOccurs="0"/>
+      <xs:element name="Address2" type="Text100Type" minOccurs="0"/>
+      <xs:element name="City" type="Text50Type" minOccurs="0"/>
+      <xs:element name="County" type="Text50Type" minOccurs="0"/>
+      <xs:element name="PostCode" type="Code20Type" minOccurs="0"/>
+      <xs:element name="CountryRegionCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="Contact" type="Text100Type" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="MeasureType">
+    <xs:simpleContent>
+      <xs:extension base="QuantityType">
+        <!-- e.g. LB, KG, CF, CM, IN, FT -->
+        <xs:attribute name="UnitOfMeasure" type="Code10Type" use="required"/>
+      </xs:extension>
+    </xs:simpleContent>
+  </xs:complexType>
+
+  <xs:complexType name="NotesType">
+    <xs:sequence>
+      <xs:element name="Note" type="Text250Type" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="PurposeCodeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="00"/><!-- Original -->
+      <xs:enumeration value="01"/><!-- Cancellation -->
+      <xs:enumeration value="05"/><!-- Replace -->
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="TransportMethodCodeType">
+    <xs:annotation>
+      <xs:documentation>M=Motor, R=Rail, A=Air, S=Ocean, U=Private Parcel, E=Expedited Truck</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="M"/>
+      <xs:enumeration value="R"/>
+      <xs:enumeration value="A"/>
+      <xs:enumeration value="S"/>
+      <xs:enumeration value="U"/>
+      <xs:enumeration value="E"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="QuantityType">
+    <xs:restriction base="xs:decimal">
+      <xs:totalDigits value="18"/>
+      <xs:fractionDigits value="5"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="GTINType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{8}|[0-9]{12,14}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="GLNType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{13}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="SSCCType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{18}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Code10Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="10"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Code20Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="20"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Code35Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="35"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Code50Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="50"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Text50Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="50"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Text100Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="100"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Text250Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="250"/></xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

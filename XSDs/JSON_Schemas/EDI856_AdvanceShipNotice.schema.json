@@ -1,0 +1,582 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rsm:edi:bc:856:v1:json",
+  "title": "EDI 856 - Advance Ship Notice (Outbound)",
+  "description": "Business Central -> Trading Partner. From Posted Sales Shipment with Item Tracking. Hierarchy: Shipment -> Order -> Pallet -> [Carton] -> Item; loose cartons/items allowed at Order level.",
+  "type": "object",
+  "properties": {
+    "EDIEnvelopeInfo": {
+      "$ref": "#/$defs/EDIEnvelopeInfo"
+    },
+    "Header": {
+      "$ref": "#/$defs/Header"
+    },
+    "Orders": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Order"
+      },
+      "minItems": 1
+    },
+    "Summary": {
+      "$ref": "#/$defs/Summary"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "EDIEnvelopeInfo",
+    "Header",
+    "Orders"
+  ],
+  "$defs": {
+    "Code10": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 10
+    },
+    "Code20": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20
+    },
+    "Code35": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 35
+    },
+    "Code50": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 50
+    },
+    "Text30": {
+      "type": "string",
+      "maxLength": 30
+    },
+    "Text50": {
+      "type": "string",
+      "maxLength": 50
+    },
+    "Text80": {
+      "type": "string",
+      "maxLength": 80
+    },
+    "Text100": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "Text250": {
+      "type": "string",
+      "maxLength": 250
+    },
+    "Date": {
+      "type": "string",
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "Quantity": {
+      "type": "number"
+    },
+    "Amount": {
+      "type": "number"
+    },
+    "Percent": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "GTIN": {
+      "type": "string",
+      "pattern": "^(\\d{8}|\\d{12,14})$"
+    },
+    "GLN": {
+      "type": "string",
+      "pattern": "^\\d{13}$"
+    },
+    "SSCC": {
+      "type": "string",
+      "pattern": "^\\d{18}$"
+    },
+    "Measure": {
+      "type": "object",
+      "description": "A physical measure with its unit (weight, volume, dimension)",
+      "properties": {
+        "Value": {
+          "$ref": "#/$defs/Quantity"
+        },
+        "UnitOfMeasure": {
+          "$ref": "#/$defs/Code10"
+        }
+      },
+      "required": [
+        "Value",
+        "UnitOfMeasure"
+      ],
+      "additionalProperties": false
+    },
+    "Address": {
+      "type": "object",
+      "properties": {
+        "LocationCode": {
+          "$ref": "#/$defs/Code20"
+        },
+        "GLN": {
+          "$ref": "#/$defs/GLN"
+        },
+        "Name": {
+          "$ref": "#/$defs/Text100"
+        },
+        "Name2": {
+          "$ref": "#/$defs/Text100"
+        },
+        "Address": {
+          "$ref": "#/$defs/Text100"
+        },
+        "Address2": {
+          "$ref": "#/$defs/Text100"
+        },
+        "City": {
+          "$ref": "#/$defs/Text50"
+        },
+        "County": {
+          "$ref": "#/$defs/Text50"
+        },
+        "PostCode": {
+          "$ref": "#/$defs/Code20"
+        },
+        "CountryRegionCode": {
+          "$ref": "#/$defs/Code10"
+        },
+        "Contact": {
+          "$ref": "#/$defs/Text100"
+        },
+        "PhoneNumber": {
+          "$ref": "#/$defs/Text30"
+        },
+        "Email": {
+          "$ref": "#/$defs/Text80"
+        }
+      },
+      "required": [
+        "Name"
+      ],
+      "additionalProperties": false
+    },
+    "Notes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Text250"
+      },
+      "minItems": 1
+    },
+    "References": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "Qualifier": {
+            "$ref": "#/$defs/Code10"
+          },
+          "Value": {
+            "$ref": "#/$defs/Text100"
+          }
+        },
+        "required": [
+          "Qualifier",
+          "Value"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "EDIEnvelopeInfo": {
+      "type": "object",
+      "description": "Envelope-level EDI identification, common to all RSM BC EDI documents.",
+      "properties": {
+        "TransactionSetCode": {
+          "const": "856",
+          "description": "EDI transaction set identifier (ST01 equivalent). Fixed to \"856\" in this schema."
+        },
+        "SourceTradingPartnerId": {
+          "$ref": "#/$defs/Code35",
+          "description": "Sender identifier (ISA06/GS02 equivalent)"
+        },
+        "DestinationTradingPartnerId": {
+          "$ref": "#/$defs/Code35",
+          "description": "Receiver identifier (ISA08/GS03 equivalent)"
+        },
+        "EDIDocumentNumber": {
+          "$ref": "#/$defs/Code35",
+          "description": "Unique EDI document/control number (ST02 equivalent); duplicate detection key"
+        }
+      },
+      "required": [
+        "TransactionSetCode",
+        "SourceTradingPartnerId",
+        "DestinationTradingPartnerId",
+        "EDIDocumentNumber"
+      ],
+      "additionalProperties": false
+    },
+    "SerialNumbers": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Code50"
+      },
+      "minItems": 1
+    },
+    "Lot": {
+      "type": "object",
+      "properties": {
+        "LotNumber": {
+          "$ref": "#/$defs/Code50"
+        },
+        "Quantity": {
+          "$ref": "#/$defs/Quantity"
+        },
+        "ManufacturingDate": {
+          "$ref": "#/$defs/Date"
+        },
+        "ExpirationDate": {
+          "$ref": "#/$defs/Date"
+        },
+        "CountryOfOriginCode": {
+          "$ref": "#/$defs/Code10"
+        },
+        "SerialNumbers": {
+          "$ref": "#/$defs/SerialNumbers"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "LotNumber",
+        "Quantity"
+      ]
+    },
+    "Item": {
+      "type": "object",
+      "properties": {
+        "PurchaseOrderLineNumber": {
+          "type": "integer"
+        },
+        "ShipmentLineNumber": {
+          "type": "integer"
+        },
+        "BuyerItemNumber": {
+          "$ref": "#/$defs/Code50"
+        },
+        "SellerItemNumber": {
+          "$ref": "#/$defs/Code20"
+        },
+        "GTIN": {
+          "$ref": "#/$defs/GTIN"
+        },
+        "VariantCode": {
+          "$ref": "#/$defs/Code10"
+        },
+        "Description": {
+          "$ref": "#/$defs/Text100"
+        },
+        "QuantityShipped": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/Quantity"
+            }
+          ],
+          "description": "Quantity in THIS packing unit, not the full shipment line quantity"
+        },
+        "UnitOfMeasureCode": {
+          "$ref": "#/$defs/Code10"
+        },
+        "QuantityOrdered": {
+          "$ref": "#/$defs/Quantity"
+        },
+        "CountryOfOriginCode": {
+          "$ref": "#/$defs/Code10"
+        },
+        "Lots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Lot"
+          },
+          "minItems": 1
+        },
+        "SerialNumbers": {
+          "$ref": "#/$defs/SerialNumbers"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "ShipmentLineNumber",
+        "SellerItemNumber",
+        "QuantityShipped",
+        "UnitOfMeasureCode"
+      ],
+      "description": "Lots/SerialNumbers appear only for tracked items; serials may also nest under a lot for lot+serial tracking."
+    },
+    "Carton": {
+      "type": "object",
+      "properties": {
+        "CartonId": {
+          "$ref": "#/$defs/Code50"
+        },
+        "SSCC": {
+          "$ref": "#/$defs/SSCC"
+        },
+        "TrackingNumber": {
+          "$ref": "#/$defs/Code50"
+        },
+        "GrossWeight": {
+          "$ref": "#/$defs/Measure"
+        },
+        "NetWeight": {
+          "$ref": "#/$defs/Measure"
+        },
+        "Items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Item"
+          },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "CartonId",
+        "Items"
+      ]
+    },
+    "Pallet": {
+      "type": "object",
+      "properties": {
+        "PalletId": {
+          "$ref": "#/$defs/Code50"
+        },
+        "SSCC": {
+          "$ref": "#/$defs/SSCC"
+        },
+        "PalletTypeCode": {
+          "$ref": "#/$defs/Code10"
+        },
+        "GrossWeight": {
+          "$ref": "#/$defs/Measure"
+        },
+        "NetWeight": {
+          "$ref": "#/$defs/Measure"
+        },
+        "Height": {
+          "$ref": "#/$defs/Measure"
+        },
+        "Length": {
+          "$ref": "#/$defs/Measure"
+        },
+        "Width": {
+          "$ref": "#/$defs/Measure"
+        },
+        "CartonCount": {
+          "type": "integer"
+        },
+        "Cartons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Carton"
+          },
+          "minItems": 1
+        },
+        "Items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Item"
+          },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "PalletId"
+      ],
+      "anyOf": [
+        {
+          "required": [
+            "Cartons"
+          ]
+        },
+        {
+          "required": [
+            "Items"
+          ]
+        }
+      ],
+      "description": "A pallet carries cartons, direct items, or both - an empty pallet is invalid."
+    },
+    "Order": {
+      "type": "object",
+      "properties": {
+        "PurchaseOrderNumber": {
+          "$ref": "#/$defs/Code35"
+        },
+        "PurchaseOrderDate": {
+          "$ref": "#/$defs/Date"
+        },
+        "SalesOrderNumber": {
+          "$ref": "#/$defs/Code20"
+        },
+        "DepartmentNumber": {
+          "$ref": "#/$defs/Code35"
+        },
+        "Pallets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Pallet"
+          },
+          "minItems": 1
+        },
+        "LooseCartons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Carton"
+          },
+          "minItems": 1
+        },
+        "LooseItems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Item"
+          },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "PurchaseOrderNumber",
+        "SalesOrderNumber"
+      ],
+      "anyOf": [
+        {
+          "required": [
+            "Pallets"
+          ]
+        },
+        {
+          "required": [
+            "LooseCartons"
+          ]
+        },
+        {
+          "required": [
+            "LooseItems"
+          ]
+        }
+      ],
+      "description": "At least one of Pallets, LooseCartons, or LooseItems is required."
+    },
+    "Header": {
+      "type": "object",
+      "properties": {
+        "TradingPartnerId": {
+          "$ref": "#/$defs/Code20"
+        },
+        "ShipmentNumber": {
+          "$ref": "#/$defs/Code20"
+        },
+        "ShipmentDate": {
+          "$ref": "#/$defs/Date"
+        },
+        "EstimatedDeliveryDate": {
+          "$ref": "#/$defs/Date"
+        },
+        "TransactionPurposeCode": {
+          "enum": [
+            "00",
+            "01",
+            "05"
+          ],
+          "default": "00",
+          "description": "00=Original, 01=Cancellation, 05=Replace"
+        },
+        "ShippingAgentCode": {
+          "$ref": "#/$defs/Code10"
+        },
+        "ShippingAgentServiceCode": {
+          "$ref": "#/$defs/Code10"
+        },
+        "SCAC": {
+          "$ref": "#/$defs/Code10"
+        },
+        "TransportMethodCode": {
+          "enum": [
+            "M",
+            "R",
+            "A",
+            "S",
+            "U",
+            "E"
+          ],
+          "description": "M=Motor, R=Rail, A=Air, S=Ocean, U=Private Parcel, E=Expedited Truck"
+        },
+        "BillOfLadingNumber": {
+          "$ref": "#/$defs/Code35"
+        },
+        "ProNumber": {
+          "$ref": "#/$defs/Code35"
+        },
+        "TrackingNumber": {
+          "$ref": "#/$defs/Code50"
+        },
+        "TrailerNumber": {
+          "$ref": "#/$defs/Code35"
+        },
+        "SealNumber": {
+          "$ref": "#/$defs/Code35"
+        },
+        "TotalGrossWeight": {
+          "$ref": "#/$defs/Measure"
+        },
+        "TotalNetWeight": {
+          "$ref": "#/$defs/Measure"
+        },
+        "TotalVolume": {
+          "$ref": "#/$defs/Measure"
+        },
+        "TotalPalletCount": {
+          "type": "integer"
+        },
+        "TotalCartonCount": {
+          "type": "integer"
+        },
+        "ShipFrom": {
+          "$ref": "#/$defs/Address"
+        },
+        "ShipTo": {
+          "$ref": "#/$defs/Address"
+        },
+        "Notes": {
+          "$ref": "#/$defs/Notes"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "TradingPartnerId",
+        "ShipmentNumber",
+        "ShipmentDate",
+        "ShipFrom",
+        "ShipTo"
+      ]
+    },
+    "Summary": {
+      "type": "object",
+      "properties": {
+        "TotalLineCount": {
+          "type": "integer"
+        },
+        "TotalQuantityShipped": {
+          "$ref": "#/$defs/Quantity"
+        },
+        "TotalPackagingUnitCount": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

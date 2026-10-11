@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  EDI 850 - Purchase Order (Inbound)
+  Direction: Trading Partner -> Business Central
+  BC Target: Sales Header / Sales Line (Document Type = Order)
+  Mapping notes:
+    - PurchaseOrderNumber -> Sales Header."External Document No."
+    - TradingPartnerId    -> resolves to Sales Header."Sell-to Customer No." via partner setup
+    - BuyerItemNumber     -> Item Reference (Reference Type = Customer)
+    - SellerItemNumber    -> Item."No." (when partner sends our number)
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:rsm:edi:bc:850:v1"
+           xmlns="urn:rsm:edi:bc:850:v1"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified"
+           version="1.0">
+
+  <!-- ======================= Root ======================= -->
+  <xs:element name="PurchaseOrder" type="PurchaseOrderType"/>
+
+  <xs:complexType name="PurchaseOrderType">
+    <xs:sequence>
+      <xs:element name="EDIEnvelopeInfo" type="EDIEnvelopeInfoType"/>
+      <xs:element name="Header" type="PurchaseOrderHeaderType"/>
+      <xs:element name="Lines" type="PurchaseOrderLinesType"/>
+      <xs:element name="Summary" type="PurchaseOrderSummaryType" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="SchemaVersion" type="xs:string" use="optional" default="1.0"/>
+  </xs:complexType>
+
+  <!-- ======================= Header ======================= -->
+  <xs:complexType name="PurchaseOrderHeaderType">
+    <xs:sequence>
+      <!-- Partner identification -->
+      <xs:element name="TradingPartnerId" type="Code20Type"/>
+      <xs:element name="SenderId" type="Code35Type" minOccurs="0"/>
+      <xs:element name="ReceiverId" type="Code35Type" minOccurs="0"/>
+
+      <!-- Core order identification -->
+      <xs:element name="PurchaseOrderNumber" type="Code35Type"/>
+      <xs:element name="PurchaseOrderDate" type="xs:date"/>
+      <xs:element name="PurchaseOrderTypeCode" type="POTypeCodeType" minOccurs="0"/>
+
+      <!-- Dates -->
+      <xs:element name="RequestedDeliveryDate" type="xs:date" minOccurs="0"/>
+      <xs:element name="RequestedShipDate" type="xs:date" minOccurs="0"/>
+      <xs:element name="DoNotShipBeforeDate" type="xs:date" minOccurs="0"/>
+      <xs:element name="DoNotShipAfterDate" type="xs:date" minOccurs="0"/>
+
+      <!-- Commercial terms -->
+      <xs:element name="CurrencyCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="PaymentTermsCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="PaymentTermsDescription" type="Text100Type" minOccurs="0"/>
+      <xs:element name="ShipmentMethodCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="ShippingAgentCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="ShippingAgentServiceCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="FreightTermsCode" type="Code10Type" minOccurs="0"/>
+
+      <!-- Addresses -->
+      <xs:element name="BillTo" type="AddressType" minOccurs="0"/>
+      <xs:element name="ShipTo" type="AddressType"/>
+
+      <!-- References -->
+      <xs:element name="References" type="ReferencesType" minOccurs="0"/>
+
+      <!-- Free-form notes -> Sales Comment Lines -->
+      <xs:element name="Notes" type="NotesType" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= Lines ======================= -->
+  <xs:complexType name="PurchaseOrderLinesType">
+    <xs:sequence>
+      <xs:element name="Line" type="PurchaseOrderLineType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="PurchaseOrderLineType">
+    <xs:sequence>
+      <!-- Echoed back on 855/856/810 for partner-side matching -->
+      <xs:element name="LineNumber" type="xs:integer"/>
+
+      <!-- Item identification: at least one of BuyerItemNumber,
+           SellerItemNumber, or GTIN is required; a line with no item
+           identifier is invalid. -->
+      <xs:choice>
+        <xs:sequence>
+          <xs:element name="BuyerItemNumber" type="Code50Type"/>
+          <xs:element name="SellerItemNumber" type="Code20Type" minOccurs="0"/>
+          <xs:element name="GTIN" type="GTINType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:sequence>
+          <xs:element name="SellerItemNumber" type="Code20Type"/>
+          <xs:element name="GTIN" type="GTINType" minOccurs="0"/>
+        </xs:sequence>
+        <xs:element name="GTIN" type="GTINType"/>
+      </xs:choice>
+      <xs:element name="VariantCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="Description" type="Text100Type" minOccurs="0"/>
+
+      <!-- Quantity / price -->
+      <xs:element name="QuantityOrdered" type="QuantityType"/>
+      <xs:element name="UnitOfMeasureCode" type="Code10Type"/>
+      <xs:element name="UnitPrice" type="AmountType" minOccurs="0"/>
+      <xs:element name="LineAmount" type="AmountType" minOccurs="0"/>
+
+      <!-- Line-level dates (override header when present) -->
+      <xs:element name="RequestedDeliveryDate" type="xs:date" minOccurs="0"/>
+      <xs:element name="RequestedShipDate" type="xs:date" minOccurs="0"/>
+
+      <!-- Line-level ship-to (drop ship / multi-destination POs) -->
+      <xs:element name="ShipTo" type="AddressType" minOccurs="0"/>
+
+      <xs:element name="References" type="ReferencesType" minOccurs="0"/>
+      <xs:element name="Notes" type="NotesType" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= Summary ======================= -->
+  <xs:complexType name="PurchaseOrderSummaryType">
+    <xs:sequence>
+      <xs:element name="TotalLineCount" type="xs:integer" minOccurs="0"/>
+      <xs:element name="TotalQuantity" type="QuantityType" minOccurs="0"/>
+      <xs:element name="TotalAmount" type="AmountType" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= EDI envelope ======================= -->
+  <xs:complexType name="EDIEnvelopeInfoType">
+    <xs:annotation>
+      <xs:documentation>Envelope-level EDI identification, common to all RSM BC EDI documents. Always the first child of the root element.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="TransactionSetCode" type="Code10Type" fixed="850">
+        <xs:annotation><xs:documentation>EDI transaction set identifier (ST01 equivalent). Fixed to "850" in this schema - a document carrying any other value fails validation, so the raw XML self-identifies its message type.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="SourceTradingPartnerId" type="Code35Type">
+        <xs:annotation><xs:documentation>Sender identifier (ISA06/GS02 equivalent)</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="DestinationTradingPartnerId" type="Code35Type">
+        <xs:annotation><xs:documentation>Receiver identifier (ISA08/GS03 equivalent)</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="EDIDocumentNumber" type="Code35Type">
+        <xs:annotation><xs:documentation>Unique EDI document/control number for this transaction (ST02 equivalent); duplicate detection key</xs:documentation></xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= Shared types ======================= -->
+  <xs:complexType name="AddressType">
+    <xs:sequence>
+      <xs:element name="LocationCode" type="Code20Type" minOccurs="0"/>
+      <xs:element name="GLN" type="GLNType" minOccurs="0"/>
+      <xs:element name="Name" type="Text100Type"/>
+      <xs:element name="Name2" type="Text100Type" minOccurs="0"/>
+      <xs:element name="Address" type="Text100Type" minOccurs="0"/>
+      <xs:element name="Address2" type="Text100Type" minOccurs="0"/>
+      <xs:element name="City" type="Text50Type" minOccurs="0"/>
+      <xs:element name="County" type="Text50Type" minOccurs="0"/>
+      <xs:element name="PostCode" type="Code20Type" minOccurs="0"/>
+      <xs:element name="CountryRegionCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="Contact" type="Text100Type" minOccurs="0"/>
+      <xs:element name="PhoneNumber" type="Text30Type" minOccurs="0"/>
+      <xs:element name="Email" type="Text80Type" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="ReferencesType">
+    <xs:sequence>
+      <xs:element name="Reference" maxOccurs="unbounded">
+        <xs:complexType>
+          <xs:simpleContent>
+            <xs:extension base="Text100Type">
+              <!-- e.g. CT=Contract, DP=Department, PD=Promotion, VN=Vendor Order -->
+              <xs:attribute name="Qualifier" type="Code10Type" use="required"/>
+            </xs:extension>
+          </xs:simpleContent>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="NotesType">
+    <xs:sequence>
+      <xs:element name="Note" type="Text250Type" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="POTypeCodeType">
+    <xs:annotation>
+      <xs:documentation>BEG02 equivalent: NE=New Order, RO=Rush Order, DS=Drop Ship, SA=Stand-alone, RL=Release against contract</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="NE"/>
+      <xs:enumeration value="RO"/>
+      <xs:enumeration value="DS"/>
+      <xs:enumeration value="SA"/>
+      <xs:enumeration value="RL"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="QuantityType">
+    <xs:restriction base="xs:decimal">
+      <xs:totalDigits value="18"/>
+      <xs:fractionDigits value="5"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="AmountType">
+    <xs:restriction base="xs:decimal">
+      <xs:totalDigits value="18"/>
+      <xs:fractionDigits value="5"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="GTINType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{8}|[0-9]{12,14}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="GLNType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{13}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Code10Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="10"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Code20Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="20"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Code35Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="35"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Code50Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="50"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Text30Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="30"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Text50Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="50"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Text80Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="80"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Text100Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="100"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Text250Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="250"/></xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>

@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  EDI 810 - Invoice (Outbound)
+  Direction: Business Central -> Trading Partner
+  BC Source: Posted Sales Invoice (Sales Invoice Header / Line)
+  Mapping notes:
+    - InvoiceNumber       <- Sales Invoice Header."No."
+    - SalesOrderNumber    <- Sales Invoice Header."Order No."
+    - PurchaseOrderNumber <- Sales Invoice Header."External Document No."
+    - ShipmentNumbers     <- related Sales Shipment Header numbers (get-shipment scenarios)
+    - Tax detail supports both US sales tax and VAT postings
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           targetNamespace="urn:rsm:edi:bc:810:v1"
+           xmlns="urn:rsm:edi:bc:810:v1"
+           elementFormDefault="qualified"
+           attributeFormDefault="unqualified"
+           version="1.0">
+
+  <!-- ======================= Root ======================= -->
+  <xs:element name="Invoice" type="InvoiceType"/>
+
+  <xs:complexType name="InvoiceType">
+    <xs:sequence>
+      <xs:element name="EDIEnvelopeInfo" type="EDIEnvelopeInfoType"/>
+      <xs:element name="Header" type="InvoiceHeaderType"/>
+      <xs:element name="Lines" type="InvoiceLinesType"/>
+      <xs:element name="Totals" type="InvoiceTotalsType"/>
+    </xs:sequence>
+    <xs:attribute name="SchemaVersion" type="xs:string" use="optional" default="1.0"/>
+  </xs:complexType>
+
+  <!-- ======================= Header ======================= -->
+  <xs:complexType name="InvoiceHeaderType">
+    <xs:sequence>
+      <xs:element name="TradingPartnerId" type="Code20Type"/>
+
+      <!-- BC invoice identification -->
+      <xs:element name="InvoiceNumber" type="Code20Type"/>
+      <xs:element name="InvoiceDate" type="xs:date"/>
+      <xs:element name="DueDate" type="xs:date" minOccurs="0"/>
+
+      <!-- Document references -->
+      <xs:element name="PurchaseOrderNumber" type="Code35Type"/>
+      <xs:element name="PurchaseOrderDate" type="xs:date" minOccurs="0"/>
+      <xs:element name="SalesOrderNumber" type="Code20Type" minOccurs="0"/>
+      <xs:element name="ShipmentNumbers" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="ShipmentNumber" type="Code20Type" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element name="BillOfLadingNumber" type="Code35Type" minOccurs="0"/>
+
+      <!-- Customer -->
+      <xs:element name="SellToCustomerNumber" type="Code20Type" minOccurs="0"/>
+      <xs:element name="CustomerTaxIdentificationNumber" type="Code35Type" minOccurs="0"/>
+
+      <!-- Terms -->
+      <xs:element name="CurrencyCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="PaymentTermsCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="PaymentTermsDescription" type="Text100Type" minOccurs="0"/>
+      <xs:element name="PaymentDiscountPercent" type="PercentType" minOccurs="0"/>
+      <xs:element name="PaymentDiscountDate" type="xs:date" minOccurs="0"/>
+      <xs:element name="ShipmentMethodCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="ShipmentDate" type="xs:date" minOccurs="0"/>
+
+      <!-- Parties -->
+      <xs:element name="RemitTo" type="AddressType" minOccurs="0"/>
+      <xs:element name="BillTo" type="AddressType" minOccurs="0"/>
+      <xs:element name="ShipTo" type="AddressType" minOccurs="0"/>
+
+      <xs:element name="Notes" type="NotesType" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= Lines ======================= -->
+  <xs:complexType name="InvoiceLinesType">
+    <xs:sequence>
+      <xs:element name="Line" type="InvoiceLineType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="InvoiceLineType">
+    <xs:sequence>
+      <!-- Cross references -->
+      <xs:element name="PurchaseOrderLineNumber" type="xs:integer" minOccurs="0"/>
+      <xs:element name="InvoiceLineNumber" type="xs:integer"/>
+
+      <!-- Line classification: Item, Resource, G/L (charges, freight), Charge -->
+      <xs:element name="LineTypeCode" type="LineTypeCodeType" minOccurs="0" default="Item"/>
+
+      <!-- Item identification -->
+      <xs:element name="BuyerItemNumber" type="Code50Type" minOccurs="0"/>
+      <xs:element name="SellerItemNumber" type="Code20Type" minOccurs="0"/>
+      <xs:element name="GTIN" type="GTINType" minOccurs="0"/>
+      <xs:element name="VariantCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="Description" type="Text100Type"/>
+
+      <!-- Quantity / pricing -->
+      <xs:element name="QuantityInvoiced" type="QuantityType"/>
+      <xs:element name="UnitOfMeasureCode" type="Code10Type"/>
+      <xs:element name="UnitPrice" type="AmountType"/>
+      <xs:element name="LineDiscountPercent" type="PercentType" minOccurs="0"/>
+      <xs:element name="LineDiscountAmount" type="AmountType" minOccurs="0"/>
+      <!-- Amount excluding tax after line discount -->
+      <xs:element name="LineAmount" type="AmountType"/>
+      <xs:element name="TaxAmount" type="AmountType" minOccurs="0"/>
+      <xs:element name="AmountIncludingTax" type="AmountType" minOccurs="0"/>
+
+      <xs:element name="Notes" type="NotesType" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= Totals ======================= -->
+  <xs:complexType name="InvoiceTotalsType">
+    <xs:sequence>
+      <xs:element name="TotalLineCount" type="xs:integer" minOccurs="0"/>
+      <xs:element name="TotalQuantityInvoiced" type="QuantityType" minOccurs="0"/>
+
+      <!-- Sum of line amounts before invoice discount, excluding tax -->
+      <xs:element name="TotalLineAmount" type="AmountType"/>
+      <xs:element name="InvoiceDiscountAmount" type="AmountType" minOccurs="0"/>
+      <!-- Freight or other header-level charges not carried as lines -->
+      <xs:element name="FreightAmount" type="AmountType" minOccurs="0"/>
+      <xs:element name="MiscellaneousChargeAmount" type="AmountType" minOccurs="0"/>
+
+      <!-- Amount excluding tax -->
+      <xs:element name="TotalAmountExcludingTax" type="AmountType"/>
+      <xs:element name="TotalTaxAmount" type="AmountType" minOccurs="0"/>
+      <xs:element name="TotalAmountIncludingTax" type="AmountType"/>
+
+      <!-- Tax breakdown by jurisdiction / VAT posting group -->
+      <xs:element name="TaxDetails" minOccurs="0">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="TaxDetail" type="TaxDetailType" maxOccurs="unbounded"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="TaxDetailType">
+    <xs:sequence>
+      <!-- Tax Area / Jurisdiction (US) or VAT Identifier (VAT countries) -->
+      <xs:element name="TaxCode" type="Code20Type"/>
+      <xs:element name="TaxDescription" type="Text100Type" minOccurs="0"/>
+      <xs:element name="TaxPercent" type="PercentType" minOccurs="0"/>
+      <xs:element name="TaxableAmount" type="AmountType" minOccurs="0"/>
+      <xs:element name="TaxAmount" type="AmountType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= Enumerations ======================= -->
+  <xs:simpleType name="LineTypeCodeType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="Item"/>
+      <xs:enumeration value="Resource"/>
+      <xs:enumeration value="GLAccount"/>
+      <xs:enumeration value="Charge"/>
+      <xs:enumeration value="Comment"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ======================= EDI envelope ======================= -->
+  <xs:complexType name="EDIEnvelopeInfoType">
+    <xs:annotation>
+      <xs:documentation>Envelope-level EDI identification, common to all RSM BC EDI documents. Always the first child of the root element.</xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="TransactionSetCode" type="Code10Type" fixed="810">
+        <xs:annotation><xs:documentation>EDI transaction set identifier (ST01 equivalent). Fixed to "810" in this schema - a document carrying any other value fails validation, so the raw XML self-identifies its message type.</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="SourceTradingPartnerId" type="Code35Type">
+        <xs:annotation><xs:documentation>Sender identifier (ISA06/GS02 equivalent)</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="DestinationTradingPartnerId" type="Code35Type">
+        <xs:annotation><xs:documentation>Receiver identifier (ISA08/GS03 equivalent)</xs:documentation></xs:annotation>
+      </xs:element>
+      <xs:element name="EDIDocumentNumber" type="Code35Type">
+        <xs:annotation><xs:documentation>Unique EDI document/control number for this transaction (ST02 equivalent); duplicate detection key</xs:documentation></xs:annotation>
+      </xs:element>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ======================= Shared types ======================= -->
+  <xs:complexType name="AddressType">
+    <xs:sequence>
+      <xs:element name="LocationCode" type="Code20Type" minOccurs="0"/>
+      <xs:element name="GLN" type="GLNType" minOccurs="0"/>
+      <xs:element name="Name" type="Text100Type"/>
+      <xs:element name="Name2" type="Text100Type" minOccurs="0"/>
+      <xs:element name="Address" type="Text100Type" minOccurs="0"/>
+      <xs:element name="Address2" type="Text100Type" minOccurs="0"/>
+      <xs:element name="City" type="Text50Type" minOccurs="0"/>
+      <xs:element name="County" type="Text50Type" minOccurs="0"/>
+      <xs:element name="PostCode" type="Code20Type" minOccurs="0"/>
+      <xs:element name="CountryRegionCode" type="Code10Type" minOccurs="0"/>
+      <xs:element name="Contact" type="Text100Type" minOccurs="0"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="NotesType">
+    <xs:sequence>
+      <xs:element name="Note" type="Text250Type" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:simpleType name="QuantityType">
+    <xs:restriction base="xs:decimal">
+      <xs:totalDigits value="18"/>
+      <xs:fractionDigits value="5"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="AmountType">
+    <xs:restriction base="xs:decimal">
+      <xs:totalDigits value="18"/>
+      <xs:fractionDigits value="5"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="PercentType">
+    <xs:restriction base="xs:decimal">
+      <xs:totalDigits value="8"/>
+      <xs:fractionDigits value="5"/>
+      <xs:minInclusive value="0"/>
+      <xs:maxInclusive value="100"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="GTINType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{8}|[0-9]{12,14}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="GLNType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9]{13}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="Code10Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="10"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Code20Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="20"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Code35Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="35"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Code50Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="50"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Text50Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="50"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Text100Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="100"/></xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="Text250Type">
+    <xs:restriction base="xs:string"><xs:maxLength value="250"/></xs:restriction>
+  </xs:simpleType>
+
+</xs:schema>
